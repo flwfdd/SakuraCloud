@@ -1,0 +1,355 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>SakuraCloud</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+	<script src="https://cdn.bootcdn.net/ajax/libs/axios/0.19.2/axios.js"></script>
+	<link href="https://fonts.googleapis.com/css?family=Material+Icons" rel="stylesheet">
+	<link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.css" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+	<script src="https://cdn.bootcdn.net/ajax/libs/vue-clipboard2/0.0.8/vue-clipboard.js"></script>
+	<!--引入思源字体-->
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:100,300,400,500,700,900">
+	
+	<style>	
+	#app{
+		font-family: Noto Serif SC;
+		font-style:  normal;
+		font-weight: 500;
+	}
+	
+	a.v-breadcrumbs__item{
+		color:#00b8d4 !important;
+	}
+	</style>
+</head>
+
+<body>
+<div id="app">
+<v-app>
+	<v-snackbar  v-model="snackbar" color="pink lighten-4 cyan--text" bottom>
+      {{msg}}
+      <v-btn color="cyan" text @click="snackbar=false" >
+        知了
+      </v-btn>
+	</v-snackbar>
+	
+	<v-app-bar class="pink lighten-4 grey--text text--darken-3" short>
+		<v-btn icon @click="nav_drawer=true">
+			<v-icon>apps</v-icon>
+		</v-btn>
+
+		<v-toolbar-title @click="jump('./')">{{title}}</v-toolbar-title>
+		<v-spacer></v-spacer>
+
+		<v-btn icon @click="CopyLink()">
+			<v-icon>share</v-icon>
+		</v-btn>
+	</v-app-bar>
+	
+	<v-navigation-drawer class="grey lighten-4" v-model="nav_drawer" absolute temporary>
+		<v-list shaped>
+			<v-list-item>
+				<v-list-item-content>
+					<h1 class="pink--text text--lighten-4">SakuraCloud</h1>
+				</v-list-item-content>
+			</v-list-item>
+			<v-divider></v-divider>
+			<v-list-item-group class="cyan--text text--accent-4">
+				<v-list-item>
+					<v-list-item-icon><v-icon>fingerprint</v-icon></v-list-item-icon>
+					<v-list-item-content><v-list-item-title>登录</v-list-item-title></v-list-item-content>
+				</v-list-item>
+				
+				<v-list-item>
+					<v-list-item-icon><v-icon>info</v-icon></v-list-item-icon>
+					<v-list-item-content><v-list-item-title>关于</v-list-item-title></v-list-item-content>
+				</v-list-item>
+			</v-list-item-group>
+		</v-list>
+	</v-navigation-drawer>
+	
+	<v-container>
+		<v-card raised>
+			<v-breadcrumbs :items="bread" large class="pink lighten-4">
+			</v-breadcrumbs>
+			
+			<v-expansion-panels flat>
+				<v-expansion-panel >
+					<v-expansion-panel-header>
+						<template v-slot:actions>
+							<v-icon color="primary">expand_more</v-icon>
+						</template>
+						筛选
+					</v-expansion-panel-header>
+
+					<v-expansion-panel-content>
+						<v-row>
+							<v-col cols="4">
+								<v-select v-model="sort_front" label="谁排在前？" color="cyan" item-color="cyan"
+									:items="[{'text':'文件','value':'file'},{'text':'文件夹','value':'dir'}]">
+								</v-select>
+							</v-col>
+							<v-col cols="4">
+								<v-select v-model="sort_by" label="根据什么？" color="cyan" item-color="cyan"
+									:items="[{'text':'名字','value':'name'},{'text':'大小','value':'size'},{'text':'时间','value':'time'}]">
+								</v-select>
+							</v-col>
+							<v-col cols="4">
+								<v-select v-model="sort_order" label="顺序如何？" color="cyan" item-color="cyan"
+									:items="[{'text':'升序','value':'up'},{'text':'降序','value':'down'}]">
+								</v-select>
+							</v-col>
+						</v-row>
+
+						<v-text-field v-model="search_s" label="搜索" color="cyan"></v-text-field>
+
+						<v-btn block text color="cyan" @click="load()">GET IT！</v-btn>
+					</v-expansion-panel-content>
+				</v-expansion-panel>
+			</v-expansion-panels>
+
+			<v-list two-line>
+				<v-subheader>文件夹:{{dir_num}}  文件:{{file_num}}</v-subheader>
+
+				<v-list-item-group color="cyan accent-4">
+				<v-list-item v-for="item in list" :key="item.name" @click="jump(item)">
+					
+					<v-list-item-avatar>
+						<v-icon v-text="item.type=='file'?'insert_drive_file':'folder_open'"></v-icon>
+					</v-list-item-avatar>
+
+					<v-list-item-content>
+						<v-list-item-title>{{item.name}}</v-list-item-title>
+						<v-list-item-subtitle>{{item.s}}</v-list-item-subtitle>
+					</v-list-item-content>
+
+					<v-tooltip bottom color="pink lighten-3">
+						<template v-slot:activator="{on}">
+							<v-list-item-action>
+								<v-btn icon>
+								  <v-icon v-on:click.stop="" v-on="on">info</v-icon>
+								</v-btn>
+							  </v-list-item-action>
+						</template>
+						<p>{{item.name}}</p>
+						<p>{{item.s}}</p>
+					</v-tooltip>
+
+				</v-list-item>
+				</v-list-item-group>
+			</v-list>
+
+			<v-btn text block :disabled="file_num+dir_num==list.length" color="cyan" :loading="loading" @click="up()">
+				{{file_num+dir_num!=list.length?'加载更多':'木有更多了'}}
+			</v-btn>
+		</v-card>
+
+		<br/>
+		<v-card>
+			<v-card-title>{{hitokoto}}</v-card-title>
+		</v-card>
+		<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+	</v-container>
+
+	<v-dialog v-model="dialog" fullscreen transition="dialog-bottom-transition">
+		<v-app-bar class="pink lighten-4 grey--text text--darken-3" short>
+			<v-toolbar-title>{{title}}</v-toolbar-title>
+			<v-spacer></v-spacer>
+	
+			<v-btn icon @click="dialog=false">
+				<v-icon>close</v-icon>
+			</v-btn>
+		</v-app-bar>
+		<v-card v-if="nowfile">
+			<v-container>
+				<v-card>
+					<v-card-title>{{nowfile.name}}</v-card-title>
+					<v-card-subtitle>{{nowfile.s}}</v-card-subtitle>
+					<v-card-text>{{nowfile.url}}</v-card-text>
+					<v-card-actions>
+					  <v-btn icon color="cyan" @click="download(nowfile.url)"><v-icon>file_download</v-icon></v-btn>
+					  <v-btn icon color="cyan" @click="message('请复制上方的链接')"><v-icon>share</v-icon></v-btn>
+					</v-card-actions>
+				</v-card>
+
+				<br/>
+				<v-card v-if="nowfile.s.length>3&&nowfile.s.substr(0,3).toUpperCase()=='MP4'">
+					<v-card-title>播放</v-card-title>
+					<v-card-text>
+						<video id="player" :src="dialog?nowfile.url:''" controls="controls" width="100%"></video>
+						<br/>
+						<v-slider v-model="vidrate" min=0.1 max=5 thumb-label step=0.1 label="速度"></v-slider>
+					</v-card-text>
+				</v-card>
+
+				<v-card v-if="nowfile.s.length>3&&nowfile.s.substr(0,3).toUpperCase()=='MP3'">
+					<v-card-title>播放</v-card-title>
+					<v-card-subtitle>建议配合MergeMusic食用</v-card-subtitle>
+					<v-card-text>
+						<audio id="player" :src="dialog?nowfile.url:''" controls="controls" style="width:100%"></audio>
+						<br/>
+						<v-slider v-model="vidrate" min=0.1 max=5 thumb-label step=0.1 label="速度"></v-slider>
+					</v-card-text>
+				</v-card>
+			</v-container>
+		</v-card>
+	</v-dialog>
+</v-app>
+</div>
+
+<script>
+	vm = new Vue({
+		vuetify: new Vuetify(),
+		el:"#app",
+		data:{
+			api_url:"./api",
+			data_url:"./data",
+			nav_drawer:null,
+			msg:"",
+			snackbar:false,
+			dialog:false,
+			title:"SakuraCloud",
+			path:'.',
+			bread:[],
+			file_num:0,
+			dir_num:0,
+			lim:20,
+			off:0,
+			loading:false,
+			sort_front:'dir',
+			sort_by:'name',
+			sort_order:'up',
+			search_s:"",
+			list:[],
+			vidrate:1,
+			nowfile:null,
+			hitokoto:"",
+		},
+		methods:{
+			load: function(path=this.path){
+				this.path=path;
+				this.list=[];
+				this.off=0;
+				this.up();
+			},
+			up: function(){
+				this.loading=true;
+				axios.get(this.api_url,{
+					params:{
+						'cmd':'list',
+						'path':this.path,
+						'lim':this.lim,
+						'off':this.off,
+						'sort':this.sort_front+'_'+this.sort_by+'_'+this.sort_order,
+						'search':this.search_s
+					}
+				})
+				.then(res=>{
+					this.off+=1;
+					this.path=res.data.path;
+					this.file_num=res.data.file_num;
+					this.dir_num=res.data.dir_num;
+					this.bread=[];
+					
+					l=this.path.split('/')
+					s=''
+					for(i in l){
+						s+=l[i]+'/';
+						this.bread.push({'text':l[i],'href':'./?path='+s});
+					}
+					this.bread[0]['text']='SakuraCloud';
+
+					l=res.data.data;
+					for(i in l){
+						s=""
+						if(l[i].type=='file'){
+							if(l[i].name.search('.')!=-1)s+=l[i].name.split('.').pop();
+							s+='文件  大小：';
+							a=Number(l[i].size);
+							if(a>=1024*1024*1024)s+=String((a/1024/1024/1024).toFixed(1))+"GB";
+							else if(a>=1024*1024)s+=String((a/1024/1024).toFixed(1))+"MB";
+							else if(a>=1024*1024)s+=String((a/1024).toFixed(1))+"KB";
+							else s+=String(a)+"B";
+
+							l[i].url=this.path.replace('.',this.data_url)+'/'+l[i].name;
+						}
+						else{
+							s+="文件夹";
+
+							l[i].url="./?path="+this.path+'/'+l[i].name;
+						}
+						s+="  修改时间:"+this.formatDate(l[i].time);
+						l[i].s=s;
+					}
+					this.list=this.list.concat(l);
+					this.loading=false;
+				})
+				
+			},
+			formatDate: function(t) {
+				var now=new Date(t*1000);
+				var year = now.getFullYear();
+				var month = now.getMonth() + 1;
+				var date = now.getDate();
+				var hour = now.getHours();
+				var minute = now.getMinutes();
+				var second = now.getSeconds();
+				return year + "-" + month + "-" + date + " " + hour + ":" + minute + ":" + second;
+			},
+			jump: function(item){
+				if(item.type=='dir'){
+					window.location.href=item.url;
+				}
+				else{
+					this.nowfile=item;
+					this.dialog=true;
+				}
+			},
+			CopyLink: function(){
+				this.Copy(window.location.href);
+			},
+			Copy: function(url){
+				this.$copyText(url).then((e) => {
+					this.message("已将链接复制到剪贴板");
+				});
+			},
+			message: function(s){
+				this.msg=s;
+				this.snackbar=true;
+			},
+			download: function(url){
+				window.open(url);
+			},
+			up_hitokoto:function(){
+				axios.get("https://v1.hitokoto.cn/")
+				.then((res)=>{
+					this.hitokoto=res.data.hitokoto+"  ——"+res.data.from;
+				})
+			}
+		},
+		watch:{
+			vidrate:function(){
+				document.getElementById('player').playbackRate=this.vidrate;
+			}
+		},
+		created: function(){
+			attr={};
+			s=decodeURI(window.location.search.substring(1));
+			l=s.split("?")
+			for(i in l){
+				ll=l[i].split('=');
+				attr[ll[0]]=ll[1];
+			}
+			if('path' in attr){this.path=attr['path']}
+			this.load(this.path);
+			this.up_hitokoto();
+			setInterval(this.up_hitokoto,10*1000);
+		}
+	})
+</script>
+
+</body>
+</html>
