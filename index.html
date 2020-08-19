@@ -10,6 +10,7 @@
 	<link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.css" rel="stylesheet">
 	<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
 	<script src="https://cdn.bootcdn.net/ajax/libs/vue-clipboard2/0.0.8/vue-clipboard.js"></script>
+	<script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
 	<!--引入思源字体-->
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:100,300,400,500,700,900">
 	
@@ -76,7 +77,7 @@
 			<v-breadcrumbs :items="bread" large class="pink lighten-4">
 			</v-breadcrumbs>
 			
-			<v-expansion-panels flat>
+			<v-expansion-panels flat v-if="type=='list'">
 				<v-expansion-panel >
 					<v-expansion-panel-header>
 						<template v-slot:actions>
@@ -111,7 +112,7 @@
 				</v-expansion-panel>
 			</v-expansion-panels>
 
-			<v-list two-line>
+			<v-list two-line  v-if="type=='list'">
 				<v-subheader>文件夹:{{dir_num}}  文件:{{file_num}}</v-subheader>
 
 				<v-list-item-group color="cyan accent-4">
@@ -140,12 +141,49 @@
 
 				</v-list-item>
 				</v-list-item-group>
+
+				<v-btn text block :disabled="file_num+dir_num==list.length" color="cyan" :loading="loading" @click="up()">
+					{{file_num+dir_num!=list.length?'加载更多':'木有更多了'}}
+				</v-btn>
 			</v-list>
 
-			<v-btn text block :disabled="file_num+dir_num==list.length" color="cyan" :loading="loading" @click="up()">
-				{{file_num+dir_num!=list.length?'加载更多':'木有更多了'}}
-			</v-btn>
+			<v-container v-if="type=='file'">
+				<v-card-title>{{nowfile.name}}</v-card-title>
+				<v-card-subtitle>{{nowfile.s}}</v-card-subtitle>
+				<v-card-text>{{nowfile.url}}</v-card-text>
+				<v-card-actions>
+				  <v-btn icon color="cyan" @click="download(nowfile.url)"><v-icon>file_download</v-icon></v-btn>
+				  <v-btn icon color="cyan" @click="CopyLink()"><v-icon>share</v-icon></v-btn>
+				</v-card-actions>
+			</v-container>
+			
 		</v-card>
+
+		<br/>
+		<div v-if="type=='file'">
+			<v-card v-if="nowfile.name.length>3&&nowfile.name.substr(-3).toUpperCase()=='MP4'">
+				<v-card-title>播放</v-card-title>
+				<v-card-text>
+					<video id="player" :src="nowfile.url" controls="controls" width="100%"></video>
+					<br/>
+					<v-slider v-model="vidrate" min=0.1 max=5 thumb-label step=0.1 label="速度"></v-slider>
+				</v-card-text>
+			</v-card>
+
+			<v-card v-if="nowfile.name.length>3&&nowfile.name.substr(-3).toUpperCase()=='MP3'">
+				<v-card-title>播放</v-card-title>
+				<v-card-subtitle>建议配合MergeMusic食用</v-card-subtitle>
+				<v-card-text>
+					<audio id="player" :src="nowfile.url" controls="controls" style="width:100%"></audio>
+					<br/>
+					<v-slider v-model="vidrate" min=0.1 max=5 thumb-label step=0.1 label="速度"></v-slider>
+				</v-card-text>
+			</v-card>
+
+			<v-card v-if="nowfile.name.length>3&&['PNG','JPG','GIF'].indexOf(nowfile.name.substr(-3).toUpperCase())!=-1">
+				<v-img :src="nowfile.url"></v-img>
+			</v-card>
+		</div>
 
 		<br/>
 		<v-card>
@@ -154,79 +192,44 @@
 		<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 	</v-container>
 
-	<v-dialog v-model="dialog" fullscreen transition="dialog-bottom-transition">
-		<v-app-bar class="pink lighten-4 grey--text text--darken-3" short>
-			<v-toolbar-title>{{title}}</v-toolbar-title>
-			<v-spacer></v-spacer>
-	
-			<v-btn icon @click="dialog=false">
-				<v-icon>close</v-icon>
-			</v-btn>
-		</v-app-bar>
-		<v-card v-if="nowfile">
-			<v-container>
-				<v-card>
-					<v-card-title>{{nowfile.name}}</v-card-title>
-					<v-card-subtitle>{{nowfile.s}}</v-card-subtitle>
-					<v-card-text>{{nowfile.url}}</v-card-text>
-					<v-card-actions>
-					  <v-btn icon color="cyan" @click="download(nowfile.url)"><v-icon>file_download</v-icon></v-btn>
-					  <v-btn icon color="cyan" @click="message('请复制上方的链接')"><v-icon>share</v-icon></v-btn>
-					</v-card-actions>
-				</v-card>
-
-				<br/>
-				<v-card v-if="nowfile.s.length>3&&nowfile.s.substr(0,3).toUpperCase()=='MP4'">
-					<v-card-title>播放</v-card-title>
-					<v-card-text>
-						<video id="player" :src="dialog?nowfile.url:''" controls="controls" width="100%"></video>
-						<br/>
-						<v-slider v-model="vidrate" min=0.1 max=5 thumb-label step=0.1 label="速度"></v-slider>
-					</v-card-text>
-				</v-card>
-
-				<v-card v-if="nowfile.s.length>3&&nowfile.s.substr(0,3).toUpperCase()=='MP3'">
-					<v-card-title>播放</v-card-title>
-					<v-card-subtitle>建议配合MergeMusic食用</v-card-subtitle>
-					<v-card-text>
-						<audio id="player" :src="dialog?nowfile.url:''" controls="controls" style="width:100%"></audio>
-						<br/>
-						<v-slider v-model="vidrate" min=0.1 max=5 thumb-label step=0.1 label="速度"></v-slider>
-					</v-card-text>
-				</v-card>
-			</v-container>
-		</v-card>
-	</v-dialog>
 </v-app>
 </div>
 
 <script>
+
+	router = new VueRouter({
+		routes: [
+    		{ path: '/:path*'}
+  		]
+	})
+
 	vm = new Vue({
 		vuetify: new Vuetify(),
 		el:"#app",
+		router,
 		data:{
-			api_url:"./api",
-			data_url:"./data",
-			nav_drawer:null,
-			msg:"",
-			snackbar:false,
-			dialog:false,
-			title:"SakuraCloud",
-			path:'.',
-			bread:[],
-			file_num:0,
-			dir_num:0,
-			lim:20,
-			off:0,
-			loading:false,
-			sort_front:'dir',
-			sort_by:'name',
-			sort_order:'up',
-			search_s:"",
-			list:[],
-			vidrate:1,
-			nowfile:null,
-			hitokoto:"",
+			api_url:"./api/", //api地址
+			data_url:window.location.origin+window.location.pathname+"data/", //文件根目录
+			nav_drawer:null, //左侧抽屉开关
+			msg:"", //提示信息
+			snackbar:false, //提示开关
+			title:"SakuraCloud", //标题
+			path:'', //当前目录
+			bread:[], //当前目录面包屑导航
+			file_num:0, //文件数统计
+			dir_num:0, //目录数统计
+			lim:20, //每页数量
+			off:0, //偏移数量
+			type:'', //类型
+			loading:false, //是否加载中
+			sort_front:'dir', //谁排在前
+			sort_by:'name', //根据谁排
+			sort_order:'up', //排列顺序
+			search_s:"", //搜索字段
+			list:[], //目录列表
+			vidrate:1, //播放速度
+			nowfile:null, //当前文件
+			hitokoto:"", //一言
 		},
 		methods:{
 			load: function(path=this.path){
@@ -252,15 +255,18 @@
 					this.path=res.data.path;
 					this.file_num=res.data.file_num;
 					this.dir_num=res.data.dir_num;
+					this.type=res.data.type;
 					this.bread=[];
 					
+					
+					if(this.path=='.')this.path='';
 					l=this.path.split('/')
 					s=''
+					this.bread.push({'text':'SakuraCloud','href':'./#/'})
 					for(i in l){
 						s+=l[i]+'/';
-						this.bread.push({'text':l[i],'href':'./?path='+s});
+						this.bread.push({'text':l[i],'href':'./#/'+s});
 					}
-					this.bread[0]['text']='SakuraCloud';
 
 					l=res.data.data;
 					for(i in l){
@@ -271,20 +277,25 @@
 							a=Number(l[i].size);
 							if(a>=1024*1024*1024)s+=String((a/1024/1024/1024).toFixed(1))+"GB";
 							else if(a>=1024*1024)s+=String((a/1024/1024).toFixed(1))+"MB";
-							else if(a>=1024*1024)s+=String((a/1024).toFixed(1))+"KB";
+							else if(a>=1024)s+=String((a/1024).toFixed(1))+"KB";
 							else s+=String(a)+"B";
 
-							l[i].url=this.path.replace('.',this.data_url)+'/'+l[i].name;
+							l[i].url=this.data_url+l[i].path;
 						}
 						else{
 							s+="文件夹";
 
-							l[i].url="./?path="+this.path+'/'+l[i].name;
+							l[i].url="./#/"+l[i].path;
 						}
 						s+="  修改时间:"+this.formatDate(l[i].time);
 						l[i].s=s;
 					}
 					this.list=this.list.concat(l);
+
+					if(this.type=="file"){
+						this.nowfile=this.list[0];
+					}
+
 					this.loading=false;
 				})
 				
@@ -300,13 +311,7 @@
 				return year + "-" + month + "-" + date + " " + hour + ":" + minute + ":" + second;
 			},
 			jump: function(item){
-				if(item.type=='dir'){
-					window.location.href=item.url;
-				}
-				else{
-					this.nowfile=item;
-					this.dialog=true;
-				}
+				router.push({params: {'path':item.path}})
 			},
 			CopyLink: function(){
 				this.Copy(window.location.href);
@@ -333,17 +338,16 @@
 		watch:{
 			vidrate:function(){
 				document.getElementById('player').playbackRate=this.vidrate;
+			},
+			$route:function(){
+				if(this.$route.params.path)this.path="./"+this.$route.params.path;
+				else this.path="";
+				this.load(this.path);
 			}
 		},
 		created: function(){
-			attr={};
-			s=decodeURI(window.location.search.substring(1));
-			l=s.split("?")
-			for(i in l){
-				ll=l[i].split('=');
-				attr[ll[0]]=ll[1];
-			}
-			if('path' in attr){this.path=attr['path']}
+			if(this.$route.params.path)this.path="./"+this.$route.params.path;
+			else this.path="";
 			this.load(this.path);
 			this.up_hitokoto();
 			setInterval(this.up_hitokoto,10*1000);

@@ -23,6 +23,18 @@ def get_list(args):
     # 爬
     dic={}
     if os.path.exists(path)==False: return dic
+    #如果是文件
+    if os.path.isfile(path)==True:
+        dic['type']='file'
+        dic['path']=os.path.relpath(path,root).replace('\\','/')
+        d={}
+        d['type']='file'
+        d['path']=os.path.relpath(path,root).replace('\\','/')
+        d['name']=os.path.basename(path)
+        d['size']=os.path.getsize(path)
+        d['time']=int(os.path.getmtime(path))
+        dic['data']=[d]
+        return dic
     for rt,dirs,files in os.walk(path,topdown=False): pass
     
     dic['dir_num']=0
@@ -36,6 +48,7 @@ def get_list(args):
     for i in l:
         i['size']=os.path.getsize(os.path.join(rt,i['name']))
         i['time']=int(os.path.getmtime(os.path.join(rt,i['name'])))
+        i['path']=os.path.relpath(os.path.join(rt,i['name']),root).replace('\\','/')
     # 排序及裁剪
     l.sort(key=lambda x: x[order[1]],reverse=(order[2]=='down'))
     l.sort(key=lambda x: x['type']!=order[0])
@@ -43,10 +56,10 @@ def get_list(args):
     l=l[:min(len(l),lim)]
 
     rt=os.path.relpath(rt,root)
-    if rt[0]!='.': rt='./'+rt
     rt.replace('\\','/')
     dic['path']=rt
     dic['data']=l
+    dic['type']='list'
     return dic
 
 @app.route('/')
