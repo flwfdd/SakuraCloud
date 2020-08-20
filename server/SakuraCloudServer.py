@@ -62,12 +62,23 @@ def get_list(args):
     dic['type']='list'
     return dic
 
+
 @app.route('/')
 def api():
     args=request.args
     if 'cmd' in args:
         if args['cmd']=='list': #获取文件列表
             return get_list(dict(args))
+
+@app.route('/upload/',methods=["POST"])
+def upload():
+    try:
+        files=request.files.getlist('files')
+        for i in files:
+            i.save(os.path.join(root,request.form['path'],i.filename))
+        return json.dumps({"status":"ok"})
+    except:
+        return json.dumps({"status":"err"})
 
 @app.route('/music_search/') #MergeMusic搜索
 def music_search():
